@@ -1,0 +1,6 @@
+name = Gp Image Crop
+description = This is module allow user can crop image everywhere
+package = Custom
+core = "7.x"
+dependencies[] = jquery_update
+configure = admin/config/config-image-crop

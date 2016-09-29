@@ -1,0 +1,5 @@
+name = GP Add Product
+description = Build UI for user can create product easy.
+core = 7.x
+package = Other
+dependencies[] = plupload

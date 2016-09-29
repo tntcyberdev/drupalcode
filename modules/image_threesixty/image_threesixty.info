@@ -1,0 +1,11 @@
+name = Image Threesixty
+description = Display Image Field Format Threesizty
+core = 7.x
+stylesheets[all][] = image_threesixty.css
+scripts[] = jquery.threesixty.js
+configure = admin/config/media/image_threesixty
+version = "7.x-1.0"
+core = "7.x"
+datestamp = "1375969028"
+package = "TK Features"
+dependencies[] = jquery_update

@@ -1,0 +1,32 @@
+<?php
+/**
+ * Implements hook_menu().
+ */
+function coconuts_menu_menu() {
+  $items['get-video'] = array(
+    'title' => 'Get Video Item',
+    'page callback' => 'coconuts_get_video',
+    'access callback' => TRUE,
+    'type' => MENU_CALLBACK,
+    'page arguments' => array(1),
+  );
+
+  return $items;
+}
+
+/**
+ * Implements hook_init().
+ */
+function coconuts_menu_init() {
+  //drupal_add_js(drupal_get_path('module', 'coconuts_menu').'/js/modernizr.js');
+  //drupal_add_js(drupal_get_path('module', 'coconuts_menu').'/js/jquery.jcarousel.min.js');
+  drupal_add_js(drupal_get_path('module', 'coconuts_menu').'/js/coconuts_menu.js');
+  drupal_add_css(drupal_get_path('module', 'coconuts_menu').'/css/style.css');
+}
+
+function coconuts_get_video() {
+	$tid = $_REQUEST['index'];
+	$default = views_embed_view('videos', 'block_1', $tid);
+	drupal_json_output($default);
+	drupal_exit();
+}

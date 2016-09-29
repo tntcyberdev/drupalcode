@@ -1,0 +1,13 @@
+name = Themeski Views Isotope
+description = Display Content Format Isotope
+dependencies[] = views (>=3.0)
+package = TK Features
+core = 7.x
+
+files[] = tk_views_isotope.module
+files[] = tk_views_isotope.views.inc
+files[] = tk_views_isotope_plugin_style_list.inc
+files[] = tk_views_isotope_format_handler.inc
+
+version = "7.x-1.0"
+core = "7.x"

@@ -1,0 +1,161 @@
+<?php
+
+/**
+ * Implements hook_help().
+ */
+function image_threesixty_help($path) {
+  if ($path == 'admin/help#image_threesixty') {
+    $help = '<p>' . t('This module allows you to use series of real photographs taken at fixed intervals in the right sequence around the object and combine them for a single interactive image. The image can auto rotate, and the user can "grab" the image and rotate the product to any angle.') . '<br /><br />' . t('This is a perfect solution for online retailers or manufacturers to take their online shopping experience to the next level by bringing their online catalog to life with 360° product views and providing a virtual tour of products. The module is also a great option for online galleries/museums or auction houses where they can provide their visitors a full 360° view of any object. ') . '</p>';
+    return $help;
+  }
+}
+
+/**
+ * Implements hook_permission().
+ */
+function image_threesixty_permission() {
+  return array(
+    'administer Image 360 degree' => array(
+      'title' => t('Administer Image 360 Degree View'),
+      'description' => t('Perform maintenance tasks for Image 360 Degree View'),
+    ),
+  );
+}
+
+/**
+ * Implements hook_field_formatter_info().
+ */
+function image_threesixty_field_formatter_info() {
+  return array(
+    'images_threesixty_render' => array(
+      'label' => t('Image Threesixty'),
+      'description' => t('Display image format threesixty'),
+      'field types' => array('image'),
+      'settings' => array('image_view_mode' => 'default','speed_scroll' => 100),
+    ),
+  );
+}
+
+/**
+ * Implements hook_field_formatter_settings_form().
+ */
+function image_threesixty_field_formatter_settings_form($field, $instance, $view_mode, $form, &$form_state) {
+  $display = $instance['display'][$view_mode];
+  $settings = $display['settings'];
+  $element = array();
+
+  if ($display['type'] == 'images_threesixty_render') {
+    $element['image_view_mode'] = array(
+      '#title'   => t('View mode'),
+      '#type'    => 'select',
+      '#options' => _image_threesixty_entity_view_mode_labels(),
+      '#default_value' => $settings['image_view_mode'],
+    );
+
+    $element['speed_scroll'] = array(
+      '#title'   => t('Scroll Speed'),
+      '#type'    => 'textfield',
+      '#default_value' => $settings['speed_scroll'],
+      '#size' => 20,
+    );
+  }
+  return $element;
+}
+
+/**
+ * Implements hook_field_formatter_settings_summary().
+ */
+function image_threesixty_field_formatter_settings_summary($field, $instance, $view_mode) {
+  $display = $instance['display'][$view_mode];
+  $settings = $display['settings'];
+  $summary = t('Image style: @size<br/> Speed scroll: @speed', array(
+    '@size' => $settings['image_view_mode'],
+    '@speed' => $settings['speed_scroll'],
+  ));
+  return $summary;
+}
+
+/**
+ * Implements hook_field_formatter_view().
+ */
+function image_threesixty_field_formatter_view($entity_type, $entity, $field, $instance, $langcode, $items, $display) {
+  $path = drupal_get_path('module', 'image_threesixty');
+  $d_path = base_path() . $path;
+  $width = NULL;
+
+  // Initialize the var.
+  $element = array();
+  // Get the settings.
+  $settings = $display['settings'];
+  // The Size setting selected in the settings form.
+  $size = $settings['image_view_mode'];
+  $speed = $settings['speed_scroll'];
+  // Create the image.
+  $style_load = image_style_load($size);
+
+  if (isset($items['0'])) {
+
+    if (is_null($width)) {
+      $width = $items['0']['width'];
+      $height = $items['0']['height'];
+    }
+    else {
+      foreach ($style_load as $key => $values) {
+        if (is_array($values) && count($values) > 0) {
+          foreach ($values as $key_n => $values_n) {
+            $width = $values_n['data']['width'];
+            $height = $values_n['data']['height'];
+          }
+        }
+      }
+    }
+
+    $settings = $display['settings'];
+    $element = array();
+    if ($display['type'] == 'images_threesixty_render') {
+      // Add jQuery
+      drupal_add_js($path.'/jquery.threesixty.js');
+      drupal_add_js($path.'/image_threesixty.js');
+      $element[0]['#type'] = 'markup';
+      $element[0]['#prefix'] = '<div class="threesixty">';
+      $element[0]['#suffix'] = '</div>';
+      $link_element = '';
+      $item_first = reset($items);
+      if ($size == 'default') {
+        $link_element = '<img class = "image-threesixty" src="' . file_create_url($item_first['uri']) . '" width="' . $width . '" height="' . $height . '" />';
+      } else {
+        $link_element .= theme(
+          'image_style',
+          array(
+            'style_name' => $size,
+            'path' => $item_first['uri'],
+            'getsize' => TRUE,
+            'attributes' => array('class' => array('thumb','image-threesixty')),
+            'width' => $width,
+            'height' => $height,
+          )
+        );
+      }
+      $element[0]['#markup'] = $link_element;
+      $src_img = array();
+      foreach ($items as $key => $value) {
+        $src_img[] = image_style_url($size,$value['uri']);
+      }
+      drupal_add_js(array('image_threesixty' => array('src_img' => $src_img,'speed' => $speed)), 'setting');
+    }
+
+    return $element;
+  }
+}
+
+/**
+ * Return an array of available view modes for file entities.
+ */
+function _image_threesixty_entity_view_mode_labels() {
+  $labels = array();
+  $style_optiions = image_styles();
+  foreach ($style_optiions as $key => $values) {
+    $labels[$key] = $values['name'];
+  }
+  return $labels;
+}

@@ -1,0 +1,102 @@
+<?php
+/**
+ * Implements hook_form_alter().
+ * Alter block edit form to add configuration field.
+ */
+function block_title_icon_form_alter(&$form, &$form_state, $form_id) {
+	if (!empty($form['module']['#value'])){
+		$module = $form['module']['#value'];
+	}
+	if (!empty($form['delta']['#value'])){
+		$delta = $form['delta']['#value'];
+	}
+	$default_arr = db_select('block_title_icon','icon');
+	$default_arr->fields('icon',array('icon'));
+	if (!empty($delta)) {
+		$default_arr->condition('icon.delta',$delta,'=');
+	}
+	$result = $default_arr->execute()->fetchAll();
+	if (!empty($result)) {
+		$icon_default = $result[0]->icon;
+	}
+
+  if (user_access('administer block classes') && ($form_id == 'block_admin_configure' || $form_id == 'block_add_block_form')) {
+
+    $form['settings']['icon_title'] = array(
+      '#type' => 'textfield',
+      '#title' => t('Icon for title'),
+      '#description' => t('Custom icon for this block title(Ex: icon-[icon_name]). Please choose icon at <a href = "http://fortawesome.github.io/Font-Awesome/icons/">Here</a>'),
+      '#maxlength' => 40,
+      '#size' => 20,
+    );
+
+    //Set icon default
+    if (!empty($icon_default)) {
+    	$form['settings']['icon_title']['#default_value'] = $icon_default;
+    }
+
+    $form['#validate'][] = 'block_title_icon_validate';
+    $form['#submit'][] = 'block_title_icon_save';
+  }
+}
+
+/**
+ * Function Save Icon For Earch Block
+ */
+function block_title_icon_save(&$form, &$form_state){
+	$delta = $form_state['values']['delta'];
+	$module = $form_state['values']['module'];
+	$icon = $form_state['values']['icon_title'];
+	//Delete old setting
+	db_delete('block_title_icon')
+		->condition('module',$module)
+		->condition('delta',$delta)
+		->execute();
+
+	//Insert New Setting
+	db_insert('block_title_icon')
+	->fields(array(
+		'module' => $module,
+		'delta' => $delta,
+		'icon' => $icon,
+	))
+	->execute();
+}
+
+/**
+ * Function Validate Icon input
+ */
+function block_title_icon_validate ($form, &$form_state) {
+	$icons = $form_state['values']['icon_title'];
+	$icon = explode(" ",$icons);
+	$total = count($icon);
+	if ($total > 1) {
+		form_set_error('icon_title',t('You can input only one icon'));
+	}
+
+}
+
+/**
+ * Implement Hook Preprocess Block
+ */
+function block_title_icon_preprocess_block(&$vars) {
+	$delta = $vars['block']->delta;
+
+	$default_arr = db_select('block_title_icon','icon');
+	$default_arr->fields('icon',array('icon','delta'));
+	$default_arr->condition('icon.delta',$delta,'=');
+	$result = $default_arr->execute()->fetchAll();
+	if (!empty($result)) {
+		$icon = $result[0]->icon;	
+	}
+	if (!empty($icon)) {
+		$subject = $vars['block']->subject;
+		if ($subject != '<none>' && $icon && $subject != '') {
+			$subject_new = '<i class = "'.$icon.'"></i> '.$subject;
+			$vars['block']->subject = $subject_new;
+		}
+	}
+}
+
+
+?>

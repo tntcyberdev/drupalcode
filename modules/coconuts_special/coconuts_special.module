@@ -1,0 +1,80 @@
+<?php
+
+define('TOKEN_ACCESS', 'oYWjoKKliDct3217bC3DSXjUBADGHKRiTYTvOWrGeKd_EzOIOMuOWw..');
+
+/**
+ * Function Excute URL & Return Json data
+ * @param: $url;
+ * @return: $data
+ */
+function coconuts_landing_tv_excute_url ($url) {
+	$ch = curl_init();
+  curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+  curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+  curl_setopt($ch, CURLOPT_URL,$url);
+  $result=curl_exec($ch);
+  curl_close($ch);
+  $data = json_decode($result, true);
+  return $data;
+}
+
+/**
+ * Implements hook_form_alter().
+ */
+function coconuts_special_form_alter(&$form, &$form_state, $form_id) {
+  global $base_url;
+  if ($form_id == 'search_block_form') {
+  	$form['search_block_form']['#attributes']['placeholder'] = t('Enter your keyword');
+    $form['#submit'][] = 'coconuts_special_search_redirect';
+  }
+}
+
+
+/**
+ * Function Add Extra Submit
+ */
+function coconuts_special_search_redirect(&$form,&$form_state) {
+  $values = $form_state['values'];
+  drupal_goto('search-videos', array('query' => array('text' => $values['search_block_form'])));
+}
+
+/**
+ * Implements hook_node_presave().
+ */
+function coconuts_special_node_presave($node) {
+  if ($node->type == 'video') {
+    $embed_code = $node->field_embed_code[LANGUAGE_NONE][0]['value'];
+    $doc = new DOMDocument();
+    @$doc->loadHTML($embed_code);
+    $video = $doc->getElementsByTagName('video');
+    foreach ($video as $attr) {
+      $video_id = $attr->getAttribute('data-video-id');
+    }
+
+    $url = 'http://api.brightcove.com/services/library?command=find_video_by_id&video_id='.$video_id.'&video_fields=id,name,videoStillURL,videoFullLength,length&media_delivery=default&token='.TOKEN_ACCESS;
+    $data = coconuts_landing_tv_excute_url($url);
+  	if (empty($node->field_image_video[LANGUAGE_NONE])) {
+			$url = $data['videoStillURL'];
+      $path = system_retrieve_file($url, 'public://video/', TRUE, FILE_EXISTS_RENAME);
+			$node->field_image_video[LANGUAGE_NONE][0]['fid'] = $path->fid;
+  	}
+  	$node->field_duration[LANGUAGE_NONE][0]['value'] = $data['length']/1000;
+  }
+}
+
+/**
+ * Implements hook_block_view_alter().
+ */
+function coconuts_special_block_view_alter(&$data, $block) {
+  if ($block->delta == '3' || $block->css_class == 'block-menu-coconuts-co') {
+  	$shows = taxonomy_get_tree(2); // Hardcode
+  	$items = array();
+  	$content = $data['content'];
+  	foreach ($shows as $key => $value) {
+  		$items[] = l($value->name,'taxonomy/term/'.$value->tid);
+  	}
+  	$output = theme_item_list(array('items' => $items, 'title' => NULL, 'type' => 'ul', 'attributes' => array('class' => array('list-show'))));
+  	$output .= $content;
+  	$data['content'] = '<div class = "list-menu-coconuts-co">'.$output.'</div>';
+  }
+}

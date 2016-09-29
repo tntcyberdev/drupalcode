@@ -1,0 +1,44 @@
+<?php
+/**
+ * Constructor Table contain setting 
+ */	
+
+/**
+ * Implement Hook_schema
+ */
+
+function block_title_icon_schema(){
+	$schema['block_title_icon'] = array(
+
+		'description' => 'Table contain icon for each block',
+		'fields' => array(
+			'module' => array(
+				'type' => 'varchar',
+		        'length' => 64,
+		        'not null' => TRUE,
+		        'description' => "The block's origin module, from {block}.module.",
+			),
+
+			'delta' => array(
+		        'type' => 'varchar',
+		        'length' => 32,
+		        'not null' => TRUE,
+		        'description' => "The block's unique delta within module, from {block}.delta.",
+		    ),
+
+			'icon' => array(
+		        'type' => 'varchar',
+		        'length' => 64,
+		        'not null' => TRUE,
+		        'description' => "The block's origin module, from {block}.module.",
+		    ),
+		),
+		'primary key' => array('module', 'delta', 'icon'),
+	    'indexes' => array(
+	      'icon' => array('icon'),
+	    ),
+	);
+	return $schema;
+}
+
+?>

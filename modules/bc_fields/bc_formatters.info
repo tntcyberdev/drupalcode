@@ -1,0 +1,5 @@
+name = BlueCoat Formatters
+description = Custom FieldAPI formatters for use with existing fields.
+core = 7.x
+version = 7.x-1.0
+package = Blue Coat

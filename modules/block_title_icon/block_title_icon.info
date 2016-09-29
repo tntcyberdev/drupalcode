@@ -1,0 +1,5 @@
+name = Block Icon
+description = Add icon font awesome into Block title.
+core = 7.x
+dependencies[] = libraries
+package = Other

@@ -1,0 +1,113 @@
+<?php
+
+/**
+ * @file
+ *  Custom FieldAPI formatters for use with existing fields.
+ */
+ 
+/**
+ * Implements hook_field_formatter_info().
+ */
+function bc_formatters_field_formatter_info() {
+  return array(
+    'bc_number_integer' => array(
+      'label' => t('BlueCoat - Default'),
+      'field types' => array('number_integer'),
+      'settings' =>  array(
+        'thousand_separator' => ' ',
+        'decimal_separator' => '.',
+        'scale' => 0,
+        'prefix_suffix' => TRUE,
+      ),      
+    )
+  );
+}
+
+/**
+ * Implements hook_field_formatter_settings_form().
+ */
+function bc_formatters_field_formatter_settings_form($field, $instance, $view_mode, $form, &$form_state) {
+  $display = $instance['display'][$view_mode];
+  $settings = $display['settings'];
+
+  $options = array(
+    ''  => t('<none>'),
+    '.' => t('Decimal point'),
+    ',' => t('Comma'),
+    ' ' => t('Space'),
+  );
+  $element['thousand_separator'] = array(
+    '#type' => 'select',
+    '#title' => t('Thousand marker'),
+    '#options' => $options,
+    '#default_value' => $settings['thousand_separator'],
+  );
+
+  if ($display['type'] == 'number_decimal' || $display['type'] == 'number_float') {
+    $element['decimal_separator'] = array(
+      '#type' => 'select',
+      '#title' => t('Decimal marker'),
+      '#options' => array('.' => t('Decimal point'), ',' => t('Comma')),
+      '#default_value' => $settings['decimal_separator'],
+    );
+    $element['scale'] = array(
+      '#type' => 'select',
+      '#title' => t('Scale'),
+      '#options' => drupal_map_assoc(range(0, 10)),
+      '#default_value' => $settings['scale'],
+      '#description' => t('The number of digits to the right of the decimal.'),
+    );
+  }
+
+  $element['prefix_suffix'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Display prefix and suffix.'),
+    '#default_value' => $settings['prefix_suffix'],
+  );
+
+  return $element;
+}
+
+
+/**
+ * Implements hook_field_formatter_settings_summary().
+ */
+function bc_formatters_field_formatter_settings_summary($field, $instance, $view_mode) {
+  $display = $instance['display'][$view_mode];
+  $instance_settings = $instance['settings'];
+  $settings = $display['settings'];
+
+  $prefix = $suffix = '';
+
+  if (isset($settings['prefix_suffix']) && $settings['prefix_suffix']) {
+    $prefix = $instance_settings['prefix'];
+    $suffix = $instance_settings['suffix'];
+  }  
+  
+  return $prefix . number_format(1234.1234567890, $settings['scale'], $settings['decimal_separator'], $settings['thousand_separator']) . $suffix;
+}
+
+/**
+ * Implements hook_field_formatter_view().
+ */
+function bc_formatters_field_formatter_view($entity_type, $entity, $field, $instance, $langcode, $items, $display) {
+  $element = array();
+  $settings = $display['settings'];
+  switch ($display['type']) {
+    case 'bc_number_integer':
+      foreach ($items as $delta => $item) {
+        $output = number_format($item['value'], $settings['scale'], $settings['decimal_separator'], $settings['thousand_separator']);
+        if ($settings['prefix_suffix']) {
+          $prefixes = isset($instance['settings']['prefix']) ? array_map('field_filter_xss', explode('|', $instance['settings']['prefix'])) : array('');
+          $suffixes = isset($instance['settings']['suffix']) ? array_map('field_filter_xss', explode('|', $instance['settings']['suffix'])) : array('');
+          $prefix = (count($prefixes) > 1) ? format_plural($item['value'], $prefixes[0], $prefixes[1]) : $prefixes[0];
+          $suffix = (count($suffixes) > 1) ? format_plural($item['value'], $suffixes[0], $suffixes[1]) : $suffixes[0];
+          $output = '<span class="prefix">' . $prefix . '</span>' . $output . '<span class="suffix">' . $suffix . '</span>';
+        }
+        $element[$delta] = array('#markup' => $output);
+      }
+      break;
+  }
+
+  return $element;
+}

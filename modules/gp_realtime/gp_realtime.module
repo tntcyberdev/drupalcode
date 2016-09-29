@@ -1,0 +1,136 @@
+<?php
+/**
+ * Implements hook_menu().
+ */
+function gp_realtime_menu() {
+  $items['realtime'] = array(
+    'title' => t('Ajax Test'),
+	  'page callback' => 'gp_realtime_check',
+	  'page arguments' => array(1),
+	  'access callback' => TRUE,
+	  'type' => MENU_CALLBACK,
+  );
+
+  $items['realtime/check-achievement'] = array(
+    'title' => t('Enable popup achievement'),
+	  'page callback' => 'gp_realtime_check_achievement',
+	  'access callback' => TRUE,
+	  'type' => MENU_CALLBACK,
+  );
+
+  return $items;
+}
+
+/**
+ * Implements hook_init().
+ */
+function gp_realtime_init() {
+	global $user;
+	if($user->uid){
+		drupal_add_js(drupal_get_path('module', 'gp_realtime') . '/js/gp_realtime.js');
+		drupal_add_js(drupal_get_path('module', 'gp_realtime') . '/js/jquery.colorbox.js'); 
+	}
+}
+
+/**
+ * Function Ajax Test
+ */
+function gp_realtime_check() {
+	global $user,$base_url;
+	$access = $user->access;
+	$uid = $user->uid;
+	$account = user_load($uid);
+
+	$time_now = time();
+	$period =  90; // 10 seconds
+	$competition = get_competition_by_uid($uid);
+	$output = '';
+	if (!empty($competition)) {
+		$changed = $competition[0]->changed;
+		if ($access < $changed) {
+			$competiton_info = node_load($competition[0]->nid);
+			$node_teaser = node_view($competiton_info,'teaser');
+			$new_cup[] = drupal_render($node_teaser);
+			drupal_json_output($new_cup);
+			drupal_exit();
+		} else {
+			$distance = $time_now - $changed;
+			if ($distance <= $period) {
+
+				$competiton_info = node_load($competition[0]->nid);
+				$node_teaser = node_view($competiton_info,'teaser');
+				$data_options = sharethis_get_options_array();
+				$mPath = url('user/'.$user->uid,array('absolute' => TRUE,'query'=>array('player' =>$user->uid,'share' => 'competition', 'competition' => $competiton_info->nid),'fragment' => 'profile-tab'));
+        $m_des = t('We came together. We were equals. We fought on BattleMate.com. But in the end, there can be only one:');
+        $sharethis = sharethis_get_button_HTML($data_options, $mPath, $m_title,$m_des);
+
+				$new_cup[] = '<div class="wrap-teaser-node-competition">'.drupal_render($node_teaser).'<div class="share-this-wapper"><div class="share-this">Sharethis:</div>'.$sharethis.'</div></div>';				
+				drupal_json_output($new_cup);
+				drupal_exit();
+			} else {
+				$tmp = array();
+				drupal_json_output($tmp);
+				drupal_exit();
+			}
+		}	
+	}
+}
+
+function gp_realtime_check_achievement(){
+	global $user;
+	//Update achievement global number 1 for user have max exp
+	update_user_get_achievement_number_1();
+	$account = user_load($user->uid);
+	if(!empty($account->field_achievement)){
+		//Current achievement
+		$current_achievements =  $account->field_achievement['und'];
+		//Old achievement
+		$old_achievements = variable_get('achievement_user_'.$account->uid,array());
+
+		
+		if($old_achievements){
+			$diff = drupal_array_diff_assoc_recursive($current_achievements,$old_achievements);
+			if(!empty($diff)){
+				foreach ($diff as $key => $value) {
+					$achievement = node_load($value['target_id']);
+					$new_achievements[] = array(
+						'markup' => render_achievement_popup($achievement->nid),
+						'id' => $achievement->nid,
+					); 
+				}
+			}
+		} else {
+			foreach ($current_achievements as $key => $value) {
+				$achievement = node_load($value['target_id']);
+				$new_achievements[] = array(
+					'markup' => render_achievement_popup($achievement->nid),
+					'id' => $achievement->nid,
+				); 
+			}
+		}
+		variable_set('achievement_user_'.$account->uid,$account->field_achievement['und']);
+		drupal_json_output($new_achievements);
+		exit();
+	}
+}
+
+/**
+ * Function Get Competition User Win
+ * @param: $uid;
+ * @return: $competiton_info
+ */
+function get_competition_by_uid($uid) {
+	$query = db_select('node', 'n');
+	$query->leftJoin('field_data_field_winner', 'winner', 'n.nid = winner.entity_id');
+	$query->fields('n',array('nid','title','created','uid','changed'));
+	$query->fields('winner',array('field_winner_target_id'));
+	$query->condition('n.type','competition','=');
+	$query->condition('n.status',1,'=');
+	if ($uid != '') {
+		$query->condition('winner.field_winner_target_id',$uid,'=');
+	}
+	$query->orderBy('n.created','DESC');
+	$query->range(0,1);
+	$results = $query->execute()->fetchAll();
+	return $results;
+}

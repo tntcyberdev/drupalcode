@@ -1,0 +1,207 @@
+<?php
+
+/**
+ * Implement Hook Menu
+ * Create Link Image Crop
+ */
+function gp_image_crop_menu() {
+	$items = array();
+  // ADD PRODUCT
+	$items['image-crop'] = array(
+    'title' => t('Crop Image'),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('gp_image_crop_form',TRUE),
+    'access callback' => TRUE,
+  );
+
+  $items['admin/config/config-image-crop'] = array(
+    'title' => t('Config Image Crop'),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('gp_image_config',TRUE),
+    'access callback' => TRUE,
+  );
+	return $items;
+}	
+
+/* 
+ * Implement Hook template_preprocess_html
+ * Action: Add js all to page
+ */
+function gp_image_crop_preprocess_html(&$variables) {
+  global $user;
+  $roles = $user->roles;
+  $ls_style = variable_get('ls_style', NULL);
+  $path = current_path();
+  drupal_add_js(array('gp_image_crop' => array('ls_style' => $ls_style,'path' => $path)), 'setting');
+	drupal_add_js(drupal_get_path('module', 'gp_image_crop').'/js/jquery.Jcrop.js');
+  if (arg(0) != 'image-crop' && in_array('administrator', $roles)) {
+	 drupal_add_js(drupal_get_path('module', 'gp_image_crop').'/js/gp_image_crop.js');
+  }
+}
+
+/**
+ * Image Crop From
+ */
+function gp_image_crop_form($form,&$form_state) {
+  global $base_url;
+	drupal_add_js(drupal_get_path('module', 'gp_image_crop').'/js/jquery.Jcrop.js');
+	drupal_add_js(drupal_get_path('module', 'gp_image_crop').'/js/gp_custom_crop.js');
+  drupal_add_css(drupal_get_path('module', 'gp_image_crop').'/css/jquery.Jcrop.css');
+	$form = array();
+  $form['#tree'] = TRUE;
+  $src = $_GET['img']; // Image LINk
+  $path_info = pathinfo($src);
+  $width = $_GET['width']; // Width Image
+  $height = $_GET['height']; // Height Image
+  $path_goto = $_GET['path']; // Path auto
+  $tmp = explode('?', $path_info['extension']);
+  $extension = reset($tmp);
+  $tmp_ex = gp_image_load_image($path_info['filename'].'.'.$extension);
+  $image_arr = end($tmp_ex); // LIST IMAGE SAME NAME
+  if (isset($image_arr) && isset($image_arr->uir)) {
+    $src_new = file_create_url($image_arr->uri);
+  } else {
+    $src_new = $base_url.'/sites/default/files/'.$path_info['filename'].'.'.$extension;
+  }
+  $form['image_crop'] = array(
+  	'#markup' => '<img src = "'.$src_new.'" class = "image-crop">'
+  );
+
+
+  $form['hidden_index'] = array(
+  	'#markup' => '<input type="hidden" id="x" name="x" /><input type="hidden" id="y" name="y" /><input type="hidden" id="w" name="w" /><input type="hidden" id="h" name="h" />'
+  );
+
+  $form['src'] = array(
+  	'#markup' => '<input type = "hidden" value = "'.$src_new.'" name ="src">',
+  );
+
+  $form['src_old'] = array(
+    '#markup' => '<input type = "hidden" value = "'.$src.'" name ="src_old">',
+  );
+
+  $form['width'] = array(
+    '#markup' => '<input type = "hidden" value = "'.$width.'" name ="width">',
+  );
+  $form['height'] = array(
+    '#markup' => '<input type = "hidden" value = "'.$height.'" name ="height">',
+  );
+  $form['path_goto'] = array(
+    '#markup' => '<input type = "hidden" value = "'.$path_goto.'" name ="path_goto">',
+  );
+
+  $form['cancel_crop'] = array(
+    '#markup' => '<a href = "'.$path_goto.'" class = "button form-submit">Cancel</a>',
+  ); 
+  $form['crop_action'] = array(
+  	'#type' => 'submit',
+  	'#value' => t('Crop !'),
+  	'#submit' => array('gp_image_crop_save'),
+  ); 
+  return $form;
+}
+
+/**
+ * GP Image Config
+ * Build Form
+ */
+function gp_image_config($form,&$form_state){
+  $form = array();
+  $form['#tree'] = TRUE;
+  $ls_style = image_styles();
+  $ops_style = array();
+  foreach ($ls_style as $key => $value) {
+    $ops_style[$key] = $value['name'];
+  }
+  $base_url = NULL;
+  //Add base url field input
+  $form['ls_style'] = array(
+    '#type' => 'checkboxes',
+    '#title' => t('Choose Images Style'),
+    '#options' => $ops_style,
+    '#default_value' => variable_get('ls_style', $base_url),
+  );
+
+  return system_settings_form($form);
+}
+
+/**
+ * Function Save and Replace image
+ * Drupal goto current page
+ */
+function gp_image_crop_save($form,&$form_state) {
+  global $base_url;
+  $path_goto = $_POST['path_goto'];
+  $width = $_POST['width'];
+  $height = $_POST['height'];
+	$targ_w = $width;
+  $targ_h = $height;
+	$jpeg_quality = 90;
+	$src = $_POST['src'];
+  $src_old = $_POST['src_old'];
+  $path_info = pathinfo($src_old);
+  $dir_current = $path_info['dirname'];
+  $path_tmp = str_replace($base_url.'/', '', $dir_current);
+  $tmp = explode('?', $path_info['extension']);
+  $extension = reset($tmp);
+  $extension = strtolower($extension);
+  $file_name = $path_tmp.'/'.$path_info['filename'].'.'.$extension;
+  switch ($extension) {
+    case 'png':
+      $img_r = imagecreatefrompng($src);
+      break;
+    case 'jpeg':
+      $img_r = imagecreatefromjpeg($src);
+      break;
+    case 'gif':
+      $img_r = imagecreatefromgif($src);
+      break;
+    case 'jpg':
+      $img_r = imagecreatefromjpeg($src);
+      break;
+    default : return "Unsupported picture type!";
+  }	
+	$dst_r = ImageCreateTrueColor( $targ_w, $targ_h );
+
+  if($extension == 'gif' || $extension == 'png'){
+    imagecolortransparent($dst_r, imagecolorallocatealpha($dst_r, 0, 0, 0, 127));
+    imagealphablending($dst_r, false);
+    imagesavealpha($dst_r, true);
+  }
+
+  imagecopyresampled($dst_r,$img_r,0,0,$_POST['x'],$_POST['y'],
+	$targ_w,$targ_h,$_POST['w'],$_POST['h']);
+
+  switch ($extension) {
+    case 'png':
+      header('Content-type: image/png');
+      imagepng($dst_r,$file_name);
+      break;
+    case 'jpeg':
+      header('Content-type: image/jpeg');
+      imagejpeg($dst_r,$file_name,$jpeg_quality);
+      break;
+    case 'gif':
+      header('Content-type: image/gif');
+      imagegif($dst_r,$file_name);
+      break;
+    case 'jpg':
+      header('Content-type: image/jpeg');
+      imagejpeg($dst_r,$file_name,$jpeg_quality);
+      break;
+  }
+  drupal_goto($base_url.'/'.$path_goto);
+  drupal_set_message(t('You cropped successful!'),'status');
+}
+
+/**
+ * Db_select file by filename
+ */
+function gp_image_load_image($file_name = NULL){
+  $result = db_select('file_managed', 'file')
+    ->fields('file',array('filename','fid','filemime','uri'))
+    ->condition('filename', $file_name,'=')
+    ->execute()
+    ->fetchAll();
+  return $result;
+}

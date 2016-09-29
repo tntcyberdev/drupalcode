@@ -1,0 +1,141 @@
+<?php
+/**
+ * Implements hook_menu().
+ */
+define('USER_ID', 441056936);
+
+function gp_instagram_menu() {
+  $items['admin/instagram-config'] = array(
+    'title' => 'Configuration Instagram',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('gp_instagram_config',TRUE),
+    'access callback' => TRUE,
+    'menu_name' => 'management',
+  );
+
+  $items['instagram-request'] = array(
+		'title' => 'Instagram request',
+		'page callback' => 'commerce_instagram_request',
+		'access callback' => TRUE,
+		'type' => MENU_CALLBACK,
+	);
+  return $items;
+}
+
+/**
+ * Config Form Email List Id & API Key
+ * Build Form
+ */
+function gp_instagram_config($form,&$form_state){
+  $form = array();
+  $form['#tree'] = TRUE;
+  global $base_url;
+  $redirect_uri = $base_url.'/instagram-request';
+  //Add base url field input
+  $form['client_id'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Client ID'),
+    '#default_value' => variable_get('client_id'),
+  );
+
+  $form['client_secret'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Client Secret'),
+    '#default_value' => variable_get('client_secret'),
+  );
+
+  $form['redirect_uri'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Redirect URI'),
+    '#default_value' => variable_get('redirect_uri',$redirect_uri),
+  );
+
+  $client_id = variable_get('client_id');
+  $client_secret = variable_get('client_secret');
+  $redirect_uri = variable_get('redirect_uri');
+  if (!empty($client_id) && !empty($client_secret) && !empty($redirect_uri)) {
+/*  	$form['access_token'] = array(
+  		'#markup' => l(t('Access token'),'https://instagram.com/oauth/authorize?client_id='.$client_id.'&redirect_uri='.$redirect_uri.'&response_type=token'),
+  	);*/
+  	$form['access_token'] = array(
+  		'#title' => t('Access token'),
+  		'#type' => 'textfield',
+  		'#default_value' => variable_get('access_token','1467529200.e5443b2.e6f13dc52e824d0ea4f918c8ccd0792e'),
+  	);
+  }
+  return system_settings_form($form);
+}
+
+/**
+ * Implements hook_block_info().
+ */
+function gp_instagram_block_info() {
+  $blocks['instagram_gallery'] = array(
+    'info' => t('Ginkgo on instagram'),
+    'cache' => DRUPAL_NO_CACHE
+  );
+
+  return $blocks;
+}
+
+/**
+ * Implements hook_block_view().
+ */
+function gp_instagram_block_view($delta = '') {
+  $block = array();
+
+  switch ($delta) {
+    case 'instagram_gallery':
+      $block['subject'] = t('Ginkgo on instagram');
+      $block['content'] = array(
+      	'#theme' => 'instagram__block',
+      	'#attached' => array(
+          'js' => array(
+            drupal_get_path('module', 'gp_instagram') . '/js/jquery.jcarousel.min.js',
+            drupal_get_path('module', 'gp_instagram') . '/js/gp_instagram.js',
+          ),
+          'css' => array(
+            drupal_get_path('module', 'gp_instagram') . '/jcarousel.connected-carousels.css',
+          ),
+        ),
+      );
+      break;
+    
+  }
+  return $block;
+}
+
+/**
+ * Implements hook_theme().
+ */
+function gp_instagram_theme($existing, $type, $theme, $path) {
+  return array(
+    'instagram__block' => array(
+      'template' => 'instagram__block',
+      'variables' => array(),
+    ),
+  );
+}
+
+/**
+ * Implements hook_preprocess().
+ */
+function gp_instagram_preprocess_instagram__block(&$variables) {
+	$access_token = variable_get('access_token');
+	$url = 'https://api.instagram.com/v1/users/'.USER_ID.'/media/recent/?access_token='.$access_token;
+	$ch = curl_init();
+	curl_setopt($ch, CURLOPT_URL, $url);
+	curl_setopt($ch, CURLOPT_HTTPHEADER, array('Accept: application/json'));
+	curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 5);
+	curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+	curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+
+	$jsonData = curl_exec($ch);
+	if (false === $jsonData) {
+	  throw new Exception("Error: _makeCall() - cURL error: " . curl_error($ch));
+	}
+	curl_close($ch);
+	$data = json_decode($jsonData);
+	$obj_images = $data->data;
+	$variables['images'] = $obj_images;
+}

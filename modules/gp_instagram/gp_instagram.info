@@ -1,0 +1,4 @@
+name = GP Instagram
+description = Build block Instagram
+core = 7.x
+package = Other

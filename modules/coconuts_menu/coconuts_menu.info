@@ -1,0 +1,5 @@
+name = Coconuts Menu
+description = "Custom Menu"
+package = Coconuts
+core = "7.x"
+dependencies[] = views

@@ -1,0 +1,705 @@
+<?php
+
+/**
+ * @file
+ * Hook and functions use Onepay.
+ */
+
+/**
+ * Implements hook commerce_payment_method_info
+ **/
+function onepay_commerce_payment_method_info() {
+  global $base_url;
+  $path = drupal_get_path('module', 'onepay');
+  //noi dia
+  $payment_methods['onepay_ec_interior'] = array(
+    'base' => 'commerce_onepay_ec_interior',
+    'title' => t('Onepay EC interior'),
+    'short_title' => t('OnePay interior'),
+    'display_title' =>  '<span class="onepay-icon"><img src="' . $base_url . '/' . $path . '/icons/onepay-atm.png"></img></span> ' . t('pay with Vietnam ATM card'),
+    'description' => t('Onepay Checkout interior'),
+    'terminal' => FALSE,
+    'offsite' => TRUE,
+    'offsite_autoredirect' => TRUE,
+  );
+
+  //quoc te
+  $payment_methods['onepay_ec_international'] = array(
+    'base' => 'commerce_onepay_ec_international',
+    'title' => t('Onepay EC international'),
+    'short_title' => t('OnePay international'),
+    'display_title' => '<span class="onepay-icon"><img src="' . $base_url . '/' . $path . '/icons/onepay-visa.png' . '"></img></span> ' . t('Pay by credit card with') . ' <span class="onepay-icon"><img src="' . $base_url . '/' . $path . '/icons/onepay.png"></img></span>' .'<br /><div class="description-onepay">'.t('(kindly note that your bill will process in Vietnamese currency VND on the credit card process website, but this has no efect on the total bill)').'</div>',
+    'description' => t('Onepay Checkout international'),
+    'terminal' => FALSE,
+    'offsite' => TRUE,
+    'offsite_autoredirect' => TRUE,
+  );
+  return $payment_methods;
+}
+
+
+/**
+ * Returns the default settings for the OnePay payment method.
+ */
+//noi dia
+function commerce_onepay_ec_interior_default_settings() {
+  return array(
+    'virtualPaymentClientURL' => '',
+    'vpc_AccessCode' => '',
+    'vpc_Merchant' => '',
+  );
+}
+
+//quoc te
+function commerce_onepay_ec_international_default_settings() {
+  return array(
+    'virtualPaymentClientURL' => '',
+    'vpc_AccessCode' => '',
+    'vpc_Merchant' => '',
+  );
+}
+
+/**
+ * Payment method callback: settings form.
+ */
+//noi dia
+function commerce_onepay_ec_interior_settings_form($settings = array()) {
+  $form = array();
+
+  // Merge default settings into the stored settings array.
+  $settings = (array) $settings + commerce_onepay_ec_interior_default_settings();
+
+  $form['virtualPaymentClientURL'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Payment Client URL'),
+    '#default_value' => $settings['virtualPaymentClientURL'],
+    '#description' => t('Virtual Payment Client URL'),
+    '#required' => TRUE,
+  );
+
+  $form['vpc_Merchant'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Merchant ID'),
+    '#default_value' => $settings['vpc_Merchant'],
+    '#description' => t('Provided by OnePAY'),
+    '#required' => TRUE,
+  );
+
+  $form['vpc_AccessCode'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Merchant AccessCode'),
+    '#default_value' => $settings['vpc_AccessCode'],
+    '#description' => t('Provided by OnePAY'),
+    '#required' => TRUE,
+  );
+
+  return $form;
+}
+
+//quoc te
+function commerce_onepay_ec_international_settings_form($settings = array()) {
+  $form = array();
+
+  // Merge default settings into the stored settings array.
+  $settings = (array) $settings + commerce_onepay_ec_international_default_settings();
+
+  $form['virtualPaymentClientURL'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Payment Client URL'),
+    '#default_value' => $settings['virtualPaymentClientURL'],
+    '#description' => t('Virtual Payment Client URL'),
+    '#required' => TRUE,
+  );
+
+  $form['vpc_Merchant'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Merchant ID'),
+    '#default_value' => $settings['vpc_Merchant'],
+    '#description' => t('Provided by OnePAY'),
+    '#required' => TRUE,
+  );
+
+  $form['vpc_AccessCode'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Merchant AccessCode'),
+    '#default_value' => $settings['vpc_AccessCode'],
+    '#description' => t('Provided by OnePAY'),
+    '#required' => TRUE,
+  );
+
+  return $form;
+}
+
+/**
+ * Payment method callback: redirect form, a wrapper around the module's general
+ */
+//noi dia
+function commerce_onepay_ec_interior_redirect_form($form, &$form_state, $order, $payment_method) {
+  // Return an error if the enabling action's settings haven't been configured.
+  foreach ($payment_method['settings'] as $key => $value) {
+    if (empty($value)) {
+      drupal_set_message(t('OnePay '.$key.' is not configured for use.'), 'error');
+      return array();
+    }
+  }
+
+  return commerce_onepay_ec_interior_order_form($form, $form_state, $order, $payment_method['settings']);
+}
+
+//quoc te
+function commerce_onepay_ec_international_redirect_form($form, &$form_state, $order, $payment_method) {
+  // Return an error if the enabling action's settings haven't been configured.
+  foreach ($payment_method['settings'] as $key => $value) {
+    if (empty($value)) {
+      drupal_set_message(t('OnePay '.$key.' is not configured for use.'), 'error');
+      return array();
+    }
+  }
+
+  return commerce_onepay_ec_international_order_form($form, $form_state, $order, $payment_method['settings']);
+}
+
+/**
+ * Builds a Website Payments Standard form from an order object.
+ *
+ * @param $order
+ *   The fully loaded order being paid for.
+ * @param $settings
+ *   An array of settings used to build out the form, including:
+ *   - virtualPaymentClientURL: URL Redirect to Onepay
+ *   - vpc_AccessCode: Provided by OnePAY
+ *   - vpc_Merchant: Provided by OnePAY
+ *
+ * @return
+ *   A renderable form array.
+ */
+//noi dia
+function commerce_onepay_ec_interior_order_form($form, &$form_state, $order, $settings) {
+  $data = array();
+  $data['vpc_OrderInfo'] = $order->order_id;
+  $data['vpc_TicketNo'] = '198.16.6.97';//ip_address();
+  $data['Title'] = t('Ginkgo Checkout');
+
+  global $user,$base_url;
+  $data['vpc_Customer_Id'] = vn_str_filter($user->name);
+  $data['vpc_Customer_Phone'] = '';
+  $data['vpc_Customer_Email'] = '';
+
+  $wrapper = entity_metadata_wrapper('commerce_order', $order);
+  $profile = commerce_customer_profile_load($order->commerce_customer_shipping[LANGUAGE_NONE][0]['profile_id']);
+  $address = $profile->commerce_customer_address[LANGUAGE_NONE][0];
+
+  $data['vpc_SHIP_City'] = vn_str_filter($address['locality']);
+  $data['vpc_SHIP_Street01'] = vn_str_filter($address['thoroughfare']);
+  $data['vpc_SHIP_Country'] = vn_str_filter($address['country']);
+  $data['vpc_SHIP_Provice'] = '';
+  $data['vpc_Currency'] = 'VND';
+
+  $order_currency_code = $wrapper->commerce_order_total->currency_code->value();
+
+  $amount = $wrapper->commerce_order_total->amount->value();
+  $amount = onepay_currency_conversion($amount, $order_currency_code, 'VND');
+  $amount = round($amount, -4);
+
+  // Ensure a default value for the payment_method setting.
+  $settings += array('payment_method' => '');
+
+  // Build the data array that will be translated into hidden form values.
+  $data['vpc_Amount'] = $amount;
+  $data['vpc_Locale'] = 'vn';
+
+  foreach ($settings as $key => $value) {
+    $data[$key] = $value;
+  }
+
+  // Allow modules to alter parameters of the API request.
+  drupal_alter('commerce_onepay_ec_interior_order_form_data', $data, $order);
+
+  $form['#action'] = $base_url.'/onepay-submit';
+
+  foreach ($data as $name => $value) {
+    $form[$name] = array('#type' => 'hidden', '#value' => $value);
+  }
+
+  $form['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Proceed to OnePay'),
+  );
+
+  return $form;
+}
+
+//quoc te
+function commerce_onepay_ec_international_order_form($form, &$form_state, $order, $settings) {
+  $data = array();
+  $data['vpc_OrderInfo'] = $order->order_id;
+  $data['vpc_TicketNo'] = ip_address();
+  $data['Title'] = t('Ginkgo Checkout');
+
+  global $user,$base_url;
+  $data['vpc_Customer_Id'] = vn_str_filter($user->name);
+  $data['vpc_Customer_Phone'] = '';
+  $data['vpc_Customer_Email'] = '';
+
+  $wrapper = entity_metadata_wrapper('commerce_order', $order);
+  $profile = commerce_customer_profile_load($order->commerce_customer_shipping[LANGUAGE_NONE][0]['profile_id']);
+  $address = $profile->commerce_customer_address[LANGUAGE_NONE][0];
+
+  $data['vpc_SHIP_City'] = vn_str_filter($address['locality']);
+  $data['vpc_SHIP_Street01'] = vn_str_filter($address['thoroughfare']);
+  $data['vpc_SHIP_Country'] = vn_str_filter($address['country']);
+  $data['vpc_SHIP_Provice'] = '';
+
+  $profile = commerce_customer_profile_load($order->commerce_customer_billing[LANGUAGE_NONE][0]['profile_id']);
+  $address = $profile->commerce_customer_address[LANGUAGE_NONE][0];
+
+  $data['AVS_City'] = vn_str_filter($address['locality']);
+  $data['AVS_Street01'] = vn_str_filter($address['thoroughfare']);
+  $data['AVS_Country'] = vn_str_filter($address['country']);
+  $data['AVS_StateProv'] = '';
+
+  $order_currency_code = $wrapper->commerce_order_total->currency_code->value();
+
+  $amount = $wrapper->commerce_order_total->amount->value();
+  //print_r($wrapper);
+  $amount = onepay_currency_conversion($amount, $order_currency_code, 'VND');
+  $amount = round($amount, -4);
+
+  // Ensure a default value for the payment_method setting.
+  $settings += array('payment_method' => '');
+
+  // Build the data array that will be translated into hidden form values.
+  $data['vpc_Amount'] = $amount;
+  $data['vpc_Locale'] = 'en';
+
+  foreach ($settings as $key => $value) {
+    $data[$key] = $value;
+  }
+
+  // Allow modules to alter parameters of the API request.
+  drupal_alter('commerce_onepay_ec_international_order_form_data', $data, $order);
+
+  $form['#action'] = $base_url.'/onepay-submit';
+
+  foreach ($data as $name => $value) {
+    $form[$name] = array('#type' => 'hidden', '#value' => $value);
+  }
+
+  $form['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Proceed to OnePay'),
+  );
+
+  return $form;
+}
+
+/**
+ * Implements hook_menu
+ **/
+function onepay_menu() {
+  $items = array();
+
+  $items['onepay-return'] = array(
+    'title' => t('Transaction information'),
+    'page callback' => 'onepay_transaction_return',
+    'access callback' => 1,
+    'page arguments' => array(1),
+  );
+
+  $items['onepay-submit'] = array(
+    'title' => t('Transaction submit'),
+    'page callback' => 'onepay_transaction_submit',
+    'access callback' => 1,
+    'page arguments' => array(1),
+  );
+
+  $items['onepay-ipn/%'] = array(
+    'title' => t('Onepay IPN'),
+    'page callback' => 'onepay_transaction_ipn',
+    'access callback' => 1,
+    'page arguments' => array(1),
+  );
+
+  return $items;
+}
+
+// function return transaction
+function onepay_transaction_return() {
+  if (empty($_GET)) {
+    drupal_not_found();
+    drupal_exit();
+  }
+
+  global $base_url;
+  $a_ss = array(
+    'vn' => 'A3EFDFABA8653DF2342E8DAC29B51AF0',
+    'en' => 'ED6B86A96F99CA55134107049D9DB246',
+  );
+
+  if ($_GET['vpc_Locale'] == 'vn') {
+    $SECURE_SECRET = $a_ss['vn'];
+    $payment_method = 'onepay_ec_interior';
+  }else {
+    $SECURE_SECRET = $a_ss['en'];
+    $payment_method = 'onepay_ec_international';
+  }
+
+  $vpc_Txn_Secure_Hash = $_GET ["vpc_SecureHash"];
+  unset ( $_GET ["vpc_SecureHash"] );
+
+  $errorExists = false;
+
+  if (strlen ( $SECURE_SECRET ) > 0 && $_GET ["vpc_TxnResponseCode"] != "7" && $_GET ["vpc_TxnResponseCode"] != "No Value Returned") {
+
+    $stringHashData = "";
+    ksort($_GET);
+
+    // sort all the incoming vpc response fields and leave out any with no value
+    foreach ( $_GET as $key => $value ) {
+      if ($key != "vpc_SecureHash" && (strlen($value) > 0) && ((substr($key, 0,4)=="vpc_") || (substr($key,0,5) =="user_"))) {
+      $stringHashData .= $key . "=" . $value . "&";
+      }
+    }
+
+    $stringHashData = rtrim($stringHashData, "&");
+
+    if (strtoupper ( $vpc_Txn_Secure_Hash ) == strtoupper(hash_hmac('SHA256', $stringHashData, pack('H*',$SECURE_SECRET)))) {
+      $hashValidated = "CORRECT";
+    } else {
+      $hashValidated = "INVALID HASH";
+    }
+  } else {
+    $hashValidated = "INVALID HASH";
+  }
+
+  $transactionNo = null2unknown ( $_GET ["vpc_TransactionNo"] );
+  $txnResponseCode = null2unknown ( $_GET ["vpc_TxnResponseCode"] );
+
+  $title = "";
+  $transStatus = false;
+
+  if($hashValidated=="CORRECT" && $txnResponseCode=="0"){
+    $transStatus = TRUE;
+    $title = "Transaction successful";
+  }elseif ($hashValidated=="INVALID HASH" && $txnResponseCode=="0"){
+    $title = "Transaction Pendding";
+  }else {
+    $title = "Transaction Invalid";
+  }
+
+  $orderInfo = null2unknown ( $_GET ["vpc_OrderInfo"] );
+  $transactionNo = null2unknown ( $_GET ["vpc_TransactionNo"] );
+  $txnResponseCode = null2unknown ( $_GET ["vpc_TxnResponseCode"] );
+  $amount = $_GET['vpc_Amount'];
+
+  if ($txnResponseCode == 99 || !is_numeric($txnResponseCode)) {
+    $order = commerce_order_load($orderInfo);
+    $order->status = 'cart';
+    commerce_order_save($order);
+    drupal_goto($base_url . '/cart');
+  }
+
+  $rs = onepay_check_transaction($transactionNo, $orderInfo);
+
+  global $user;
+  if ($rs == 0) {
+    // Prepare a transaction object to log the API response.
+    $order = commerce_order_load($orderInfo);
+    $wrapper = entity_metadata_wrapper('commerce_order', $order);
+    $total = $wrapper->commerce_order_total->amount->value();
+    $currency_code = $wrapper->commerce_order_total->currency_code->value();
+
+    $transaction = commerce_payment_transaction_new('onepay_ec_international', $orderInfo);
+    $transaction->instance_id = $payment_method.' | commerce_payment_onepay';
+    $transaction->amount = $total;
+    $transaction->currency_code = $currency_code;
+    $transaction->payload[REQUEST_TIME] = $_GET;
+    $transaction->remote_id = $transactionNo;
+
+    // If we received an unknown response status...
+    if ($txnResponseCode != 0) {
+      // Display an error message and remain on the same page.
+      drupal_set_message(t('We could not complete your payment with Onepay. Please try again or contact us if the problem persists.'), 'error');
+
+      // Log the error in a payment transaction and watchdog.
+      $transaction->remote_status = 'Failure';
+      $transaction->status = 'failure';
+      $transaction->remote_status = 'Failure';
+      $transaction->message = t('Payment failed.');
+      commerce_payment_transaction_save($transaction);
+
+      watchdog('onepay_ec_international', 'Onepay Checkout transaction failed for order @order_number.', array('@order_number' => $order->order_number), WATCHDOG_ERROR);
+    }else{
+      $transaction->remote_status = 'Completed';
+      $transaction->status = 'success';
+      $transaction->remote_status = 'Completed';
+      $transaction->message = t('Payment completed.');
+      commerce_payment_transaction_save($transaction);
+    }
+    onepay_update_transaction($orderInfo, $transactionNo, $txnResponseCode, $amount);
+  }else {
+    /*$order = commerce_order_load($orderInfo);
+    if ($user->uid != $order->uid) {*/
+    drupal_not_found();
+    drupal_exit();
+    /*}*/
+  }
+
+  if ($transStatus) {
+    $output = array(
+      '#markup' => t('<p>Thank you for shopping at Ginkgo, we wish you are pleased with our products.<br>Your Order code: '.$orderInfo.'<br>The system will automatically send a copy of this bill to your email.<br>Please check your Inbox or Spam.<br>For any enquiries or information, please <a href = '.$base_url.'/contact>contact us</a></p>'),
+    );
+  }else {
+    $output = array(
+      '#markup' => t('<p>Hello: <span class="customer">'.$user->name.'</span>!</p><p>Thank you for visiting Ginkgo Store.</p><p>Transaction is canceled. OnePay gives the announcement: <span class="message">'.getResponseDescription($txnResponseCode).'</span></p><p>For any enquiries or information, <a href = '.$base_url.'/contact>contact us</a></p>'),
+    );
+  }
+
+  drupal_set_title($title);
+
+  return $output;
+}
+
+// function update transacction reponse from Onepay after checkout
+function onepay_update_transaction($oid, $tid, $code, $amount) {
+  $order = commerce_order_load($oid);
+  if (empty($order)) {
+    return;
+  }
+
+  $rs = db_insert('onepay_transaction') // Table name no longer needs {}
+    ->fields(array(
+      'onepay_id' => $tid,
+      'o_id' => $oid,
+      'r_code' => $code,
+    ))->execute();
+
+  if ($code == 0) {
+    //update order status to pending
+    $order->status = 'pending';
+    $order->field_conversion_order_total[LANGUAGE_NONE][0]['amount'] = $amount;
+    $order->field_conversion_order_total[LANGUAGE_NONE][0]['currency_code'] = 'VND';
+
+    commerce_order_save($order);
+    commerce_checkout_complete($order);
+  }
+
+}
+
+// function get message from Onepay
+function getResponseDescription($responseCode) {
+
+  switch ($responseCode) {
+    case "0" :
+      $result = t("Approved");
+      break;
+    case "1" :
+      $result = t("Bank Declined");
+      break;
+    case "3" :
+      $result = t("Merchant not exist");
+      break;
+    case "4" :
+      $result = t("Invalid access code");
+      break;
+    case "5" :
+      $result = t("Invalid amount");
+      break;
+    case "6" :
+      $result = t("Invalid currency code");
+      break;
+    case "7" :
+      $result = t("Unspecified Failure ");
+      break;
+    case "8" :
+      $result = t("Invalid card Number");
+      break;
+    case "9" :
+      $result = t("Invalid card name");
+      break;
+    case "10" :
+      $result = t("Expired Card");
+      break;
+    case "11" :
+      $result = t("Card Not Registed Service(internet banking)");
+      break;
+    case "12" :
+      $result = t("Invalid card date");
+      break;
+    case "13" :
+      $result = t("Exist Amount");
+      break;
+    case "21" :
+      $result = t("Insufficient fund");
+      break;
+    case "99" :
+      $result = t("User cancel");
+      break;
+    default :
+      $result = t("GFailured");
+  }
+  return $result;
+}
+
+// If input is null, returns string "No Value Returned", else returns input
+function null2unknown($data) {
+  if (!isset($data) || $data == "") {
+    return "No Value Returned";
+  } else {
+    return $data;
+  }
+}
+
+// function check exit transaction
+function onepay_check_transaction($tid, $oid) {
+  if (!is_numeric($tid)) return 99;
+
+  $order = commerce_order_load($oid);
+  if (empty($order)) {
+    return 999;
+  }
+
+  $query = db_select('onepay_transaction', 'ot')
+    ->fields('ot')
+    ->condition('ot.onepay_id', $tid, '=');
+
+  $rs = $query->execute()->fetchAll();
+
+  return count($rs);
+}
+
+// function submit form payment
+function onepay_transaction_submit() {
+  $oid = $_POST['vpc_OrderInfo'];
+
+  $order = commerce_order_load($oid);
+  $order->status = 'processing';
+  commerce_order_save($order);
+
+  global $base_url;
+  $a_ss = array(
+    'vn' => 'A3EFDFABA8653DF2342E8DAC29B51AF0',
+    'en' => 'ED6B86A96F99CA55134107049D9DB246',
+  );
+
+  if ($_POST['vpc_Locale'] == 'en') {
+    $_POST['display'] = '';
+    $_POST['AgainLink'] = urlencode($base_url);
+  }
+
+  $SECURE_SECRET = $a_ss[$_POST['vpc_Locale']];
+
+  // add the start of the vpcURL querystring parameters
+  $vpcURL = $_POST["virtualPaymentClientURL"] . '?';
+
+  // Remove the Virtual Payment Client URL from the parameter hash as we
+  // remove form_id,form_build_id,form_token
+  unset($_POST["virtualPaymentClientURL"]);
+  unset($_POST["form_id"]);
+  unset($_POST["form_build_id"]);
+  unset($_POST["form_token"]);
+
+  $_POST['vpc_MerchTxnRef'] = time();
+  $_POST['vpc_Version'] = 2;
+  $_POST['vpc_ReturnURL'] = $base_url.'/onepay-return';
+  $_POST['vpc_Command'] = 'pay';
+
+  $stringHashData = "";
+
+  ksort ($_POST);
+
+  $appendAmp = 0;
+
+  foreach($_POST as $key => $value) {
+    if (strlen($value) > 0) {
+      if ($appendAmp == 0) {
+        $vpcURL .= urlencode($key) . '=' . urlencode($value);
+        $appendAmp = 1;
+      } else {
+          $vpcURL .= '&' . urlencode($key) . "=" . urlencode($value);
+      }
+
+      if ((strlen($value) > 0) && ((substr($key, 0,4)=="vpc_") || (substr($key,0,5) =="user_"))) {
+        $stringHashData .= $key . "=" . $value . "&";
+      }
+    }
+  }
+
+  $stringHashData = rtrim($stringHashData, "&");
+
+  if (strlen($SECURE_SECRET) > 0) {
+    $vpcURL .= "&vpc_SecureHash=" . strtoupper(hash_hmac('SHA256', $stringHashData, pack('H*',$SECURE_SECRET)));
+  }
+
+  drupal_goto($vpcURL);
+}
+
+// function convert currency to VND, transfer by vietcombank
+function onepay_currency_conversion($amount, $from, $to) {
+  $url = 'http://www.vietcombank.com.vn/ExchangeRates/ExrateXML.aspx';
+
+  if ($from == $to) {
+    return $amount;
+  }
+
+  $response_xml_data = file_get_contents($url);
+  $p = xml_parser_create();
+  xml_parse_into_struct($p, $response_xml_data, $vals, $index);
+
+  $response = '';
+
+  foreach ($vals as $value) {
+    if (empty($value['tag']) || $value['tag'] != 'EXRATE') continue;
+
+    if ($from != $value['attributes']['CURRENCYCODE']) continue;
+
+    $response = $value['attributes']['TRANSFER'] * $amount;
+    break;
+  }
+
+  return $response;
+}
+
+// function output IPN
+function onepay_transaction_ipn() {
+  $tid = $_GET ["vpc_TransactionNo"];
+
+  $query = db_select('onepay_transaction', 'ot')
+    ->fields('ot')
+    ->condition('ot.onepay_id', $tid, '=');
+
+  $rs = $query->execute()->fetchAssoc();
+
+  if (!empty($rs)) {
+    print 'responsecode=1&desc=confirm-success';
+    //commerce_payment_email_template($rs['o_id']);
+  }else {
+    print 'responsecode=0&desc=confirm-invalid';
+  }
+
+  drupal_exit();
+}
+
+function vn_str_filter ($str){
+  $unicode = array(
+    'a'=>'á|à|ả|ã|ạ|ă|ắ|ặ|ằ|ẳ|ẵ|â|ấ|ầ|ẩ|ẫ|ậ',
+    'd'=>'đ',
+    'e'=>'é|è|ẻ|ẽ|ẹ|ê|ế|ề|ể|ễ|ệ',
+    'i'=>'í|ì|ỉ|ĩ|ị',
+    'o'=>'ó|ò|ỏ|õ|ọ|ô|ố|ồ|ổ|ỗ|ộ|ơ|ớ|ờ|ở|ỡ|ợ',
+    'u'=>'ú|ù|ủ|ũ|ụ|ư|ứ|ừ|ử|ữ|ự',
+    'y'=>'ý|ỳ|ỷ|ỹ|ỵ',
+    'A'=>'Á|À|Ả|Ã|Ạ|Ă|Ắ|Ặ|Ằ|Ẳ|Ẵ|Â|Ấ|Ầ|Ẩ|Ẫ|Ậ',
+    'D'=>'Đ',
+    'E'=>'É|È|Ẻ|Ẽ|Ẹ|Ê|Ế|Ề|Ể|Ễ|Ệ',
+    'I'=>'Í|Ì|Ỉ|Ĩ|Ị',
+    'O'=>'Ó|Ò|Ỏ|Õ|Ọ|Ô|Ố|Ồ|Ổ|Ỗ|Ộ|Ơ|Ớ|Ờ|Ở|Ỡ|Ợ',
+    'U'=>'Ú|Ù|Ủ|Ũ|Ụ|Ư|Ứ|Ừ|Ử|Ữ|Ự',
+    'Y'=>'Ý|Ỳ|Ỷ|Ỹ|Ỵ',
+  );
+
+  foreach($unicode as $nonUnicode=>$uni){
+    $str = preg_replace("/($uni)/i", $nonUnicode, $str);
+  }
+  return $str;
+}

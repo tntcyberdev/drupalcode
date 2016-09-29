@@ -1,0 +1,47 @@
+<?php
+/**
+ * Implements hook_field_formatter_info().
+ */
+function gp_extra_field_field_extra_fields() {
+
+  $extra['node']['blog_post'] = array(
+  	'display' => array(
+  		'prev_blog' => array(
+  			'label' => t('Previous Blog'),
+        'description' => t('Previous Blog'),
+        'weight' => 10,
+        'visible' => FALSE,
+  		),
+  		'next_blog' => array(
+  			'label' => t('Next Blog'),
+        'description' => t('Next Blog'),
+        'weight' => 10,
+        'visible' => FALSE,
+  		),
+  	)
+  );
+  return $extra;
+}
+
+/**
+ * Implements hook_node_view().
+ */
+function gp_extra_field_node_view($node, $view_mode, $langcode) {
+	// Extra Field Blog
+	$prev_next_nodes = flippy_build_list($node);
+	if (!empty($prev_next_nodes['prev'])) {
+		$output_prev = '<div class = "prev-node">';
+		$output_prev .= t('Previous Article');
+		$output_prev .= l($prev_next_nodes['prev']['title'],'node/'.$prev_next_nodes['prev']['nid']);
+		$output_prev .= '</div>';
+		$node->content['prev_blog'] = array('#markup' => $output_prev);
+	}
+
+	if (!empty($prev_next_nodes['next'])) {
+		$output_next = '<div class = "next-node">'; 
+		$output_next .= t('Next Article');
+		$output_next .= l($prev_next_nodes['next']['title'],'node/'.$prev_next_nodes['next']['nid']);
+		$output_next .= '</div>';
+		$node->content['next_blog'] = array('#markup' => $output_next);
+	}
+}

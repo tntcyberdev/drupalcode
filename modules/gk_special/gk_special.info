@@ -1,0 +1,4 @@
+name = Ginkgo Special
+description = Custom some function on sites
+core = 7.x
+package = Other

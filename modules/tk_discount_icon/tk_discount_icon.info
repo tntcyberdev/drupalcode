@@ -1,0 +1,5 @@
+name = TK Discount Icon
+description = Allow user can upload icon foreach discount
+core = 7.x
+package = TK Features
+dependencies[] = commerce_discount

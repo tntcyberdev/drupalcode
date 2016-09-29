@@ -1,0 +1,109 @@
+<?php
+
+
+/**
+ * Implements hook_form_FORMID_alter().
+ * @see block_add_block_form()
+ */
+function devices_visibility_form_block_add_block_form_alter(&$form, &$form_state) {
+  devices_visibility_form_block_admin_configure_alter($form, $form_state);
+}
+
+/**
+ * Implements hook_form_FORMID_alter().
+ * Adds mobile specific visibility options to block configuration form.
+ * @see block_admin_configure()
+ */
+function devices_visibility_form_block_admin_configure_alter(&$form, &$form_state){
+	$module = $form['module']['#value'];
+	$delta = $form['delta']['#value'];
+	$default_arr = db_select('mobile_block','mobile');
+	$default_arr->fields('mobile',array('devices'));
+	$default_arr->condition('mobile.delta',$delta,'=');
+	$result = $default_arr->execute()->fetchAll();
+	$default = array();
+	for ($i=0; $i < count($result); $i++) { 
+		$default[] = $result[$i]->devices;
+	}
+	drupal_add_js(drupal_get_path('module', 'devices_visibility').'/devices_visibility.js');
+	//Constructor Group Device
+	$groups_mobile = array(
+		'mobile' =>t('Mobile'),
+		'tablet' => t('Tablet'),
+		'desktop' => t('Desktop')
+	); 
+
+	$form['visibility']['mobile_setting'] = array(
+		'#type' => 'fieldset',
+		'#title' => t('Devices visibility'),
+		'#group' => 'visibility',
+	);
+
+	$form['visibility']['mobile_setting']['device'] = array(
+		'#type' => 'checkboxes',
+		'#options' => $groups_mobile,
+		'#description' => t('Hidden this block on these device'),
+		'#default_value' => $default,
+	);
+	
+	$form['#submit'][] = 'devices_visibility_save';
+}
+
+/**
+ * Function Save Config Mobile Setting
+ */
+function devices_visibility_save(&$form, &$form_state){
+	//Delete Setting Old
+	$delta = $form_state['values']['delta'];
+	$module = $form_state['values']['module'];
+	$device = $form_state['values']['device'];
+	db_delete('mobile_block')
+		->condition('module',$module)
+		->condition('delta',$delta)
+		->execute();
+
+	//Insert New Setting
+	foreach ($device as $key => $value) {
+		if ($value != '') {
+			db_insert('mobile_block')
+			->fields(array(
+				'module' => $module,
+				'delta' => $delta,
+				'devices' => $value,
+			))
+			->execute();
+		}
+	}
+}
+
+
+/**
+ * Implements hook_block_list_alter().
+ * Check device to unset block
+ */
+
+function devices_visibility_block_view_alter(&$data, $block) {
+	$library_path = libraries_get_path('Mobile_Detect');
+	require_once $library_path.'/Mobile_Detect.php';
+	$detect = new Mobile_Detect;
+	$deviceType = ($detect->isMobile() ? ($detect->isTablet() ? 'tablet' : 'phone') : 'computer');
+	$default_arr = db_select('mobile_block','mobile');
+	$default_arr->fields('mobile',array('devices','delta'));
+	$result = $default_arr->execute()->fetchAll();
+	for ($i=0; $i < count($result); $i++) { 
+		$device = $result[$i]->devices;
+		$delta = $result[$i]->delta;
+		if (($device == 'desktop') && ($deviceType == 'computer') && ($block->delta == $delta)) {
+			$data = array();
+		} elseif (($device == 'tablet') && ($detect->isTablet() == 1) && ($block->delta == $delta)) {
+			$data = array();
+		} elseif (($device == 'mobile') && ($detect->isMobile() =='mobile' && !$detect->isTablet()) && ($block->delta == $delta)) {
+			$data = array();
+		}
+	}
+}
+
+/**
+ * Implements Hook 
+ */
+?>

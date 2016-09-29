@@ -1,0 +1,5 @@
+name = Onepay
+description = Payment method checkout Ecommerce
+core = 7.x
+dependencies[] = commerce
+package = Commerce Payments

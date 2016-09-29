@@ -1,0 +1,4 @@
+name = Clasifika Custom Site Specific
+description = Custom function for Site
+package = Clasifika
+core = 7.x

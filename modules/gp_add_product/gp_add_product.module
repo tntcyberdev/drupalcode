@@ -1,0 +1,96 @@
+<?php
+/**
+ * Implement Hook Menu
+ */
+function gp_add_product_menu() {
+	$items = array();
+  // ADD PRODUCT
+	$items['admin/t-shirt/add'] = array(
+    'title' => t('Create T-shirt'),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('gp_add_product_form',TRUE),
+    'access callback' => 'gp_add_product_access',
+    'file' => 'gp_form_add.inc'
+  );
+
+  // EDIT PRODUCT
+  $items['admin/t-shirt/%/edit'] = array(
+    'title' => t('Edit T-shirt'),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('gp_add_product_edit_form',TRUE),
+    'access callback' => 'gp_add_product_access',
+    'file' => 'gp_form_edit.inc'
+  );
+
+	return $items;
+}
+
+/**
+ * Function Access Form Create Product
+ * Access : Admin
+ */
+function gp_add_product_access(){
+  global $user;
+  $roles = $user->roles;
+  if (in_array('administrator', $roles)) {
+    return TRUE;
+  } else {
+    return FALSE;
+  }
+}
+
+/**
+ * Implement Hook Alter Form
+ * Params: form_id
+ */
+function gp_add_product_form_alter(&$form, &$form_state, $form_id) {
+  global $base_url; 
+  if (($form_id == 'products_node_form') && isset($form['nid']['#value'])) {
+    drupal_goto($base_url.'/admin/t-shirt/'.$form['nid']['#value'].'/edit');
+  } elseif ($form_id == 'products_node_form' && !isset($_GET['translation'])) {
+    drupal_goto($base_url.'/admin/t-shirt/add');
+  }
+}
+
+/**
+ * Function Create Directory by termid
+ * @param: $term_id
+ * @return: $path
+ */
+function generate_directory_by_tid ($tid = NULL) {
+  $path = 'public://';
+  $parents = taxonomy_get_parents_all($tid);
+  $count = count($parents);
+  $folder = 'sites/default/files/';
+  if (!file_exists($folder)) {
+    mkdir($folder);
+  }
+  $folder .= $parents[$count - 1]->name.'/';
+  $path .= $parents[$count - 1]->name.'/';
+  if (!file_exists($folder)) {
+    mkdir($folder);
+  }
+  return $path;
+}
+
+/**
+ * Implements hook_contextual_links_view_alter().
+ */
+function gp_add_product_contextual_links_view_alter(&$element, $items) {
+  $dest = drupal_get_destination();
+
+  // Check if we have a node link to process.
+  if (isset($element['#element']['#node']->nid)) {
+    $node = $element['#element']['#node'];
+    // Global elements.
+    $url = 'admin/t-shirt/'.$node->nid.'/edit';
+    if ($node->type == 'products') {
+      unset($element['#links']['node-edit']);
+      $element['#links']['edit-ui'] = array(
+        'title' => t('Edit UI'),
+        'href' => url($url, array('absolute' => TRUE, 'query' => array('destination' => current_path()))),
+      );
+    }
+  }
+  
+}

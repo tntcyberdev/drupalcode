@@ -1,0 +1,4 @@
+name = Coconuts Special
+description = "Allow custom some functions in system"
+package = Coconuts
+core = "7.x"

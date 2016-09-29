@@ -1,0 +1,138 @@
+<?php
+/**
+ * Implements hook_menu().
+ */
+function tk_discount_icon_menu() {
+  $items['admin/commerce/store/discounts/icon'] = array(
+    'title' => t('Discounts Icon'),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('tk_discount_icon_form',TRUE),
+		'access arguments' => array('administer'),
+    'type' => MENU_LOCAL_TASK,
+  );
+
+  return $items;
+}
+
+/**
+ * Implements hook_form().
+ */
+function tk_discount_icon_form($form, &$form_state) {
+	$form = array();
+	$discounts = tk_discount_get(); // Discount List;
+
+	// Render Form
+	foreach ($discounts as $discount) {
+		$id = $discount->discount_id;
+		$form['icon_'.$id] = array(
+			'#title' => $discount->label,
+		  '#type' => 'managed_file',
+		  '#description' => t('The uploaded image will be displayed on this page using the image style choosen below.'),
+		  '#default_value' => variable_get('icon_'.$id, ''),
+		  '#upload_location' => 'public://discount_icon',
+		);
+		$fid = variable_get('icon_'.$id, '');
+		if (!empty($fid)) {
+			$fid = variable_get('icon_'.$id, '');
+			$file = file_load($fid);
+			if (!empty($file)) {
+				$uri = $file->uri;
+				$form['icon_preview_'.$id] = array(
+					'#markup' => '<img src = "'.image_style_url('thumbnail', $uri).'">',
+				);
+			}
+		}
+	}
+  return system_settings_form($form);
+}
+
+/**
+ * Implements hook_field_extra_fields().
+ */
+function tk_discount_icon_field_extra_fields() {
+  $extra['node']['product_display'] = array(
+    'display' => array(
+      'discount_icon' => array(
+        'label' => t('Discount Icon'),
+        'description' => t('Display Icon Discount'),
+        'weight' => 10,
+        'visible' => FALSE,
+      ),
+    )
+  );
+
+  return $extra;
+}
+
+/**
+ * Implements hook_node_view().
+ */
+function tk_discount_icon_node_view($node, $view_mode, $langcode) {
+	global $user;
+	$discounts = tk_discount_get(); // Discount List
+
+	$discount_id = NULL;
+	$extrafields = field_extra_fields_get_display('node', $node->type, $view_mode);
+	$extrafield_name = 'discount_icon';
+	if ( isset($extrafields[$extrafield_name])
+	  && isset($extrafields[$extrafield_name]['visible'])
+	  && $extrafields[$extrafield_name]['visible']) {
+	 	if (isset($node->field_product[LANGUAGE_NONE])) {
+	 		$pid = $node->field_product[LANGUAGE_NONE][0]['product_id'];
+	 		$product = commerce_product_load($pid);
+		  $price = commerce_product_calculate_sell_price($product,FALSE); // Get Price Component
+		  $components = $price['data']['components'];
+		  if (count($components) >= 1) {
+		  	$discount_name = array();
+		  	foreach ($components as $key => $value) {
+		 			if ($key != 0) {
+		 				if (!in_array($value['price']['data']['discount_name'], $discount_name)) {
+		 					$discount_name[] = $value['price']['data']['discount_name'];
+		 				}
+		 			}	
+		  	}
+		  }
+	 	}
+
+	 	// Get Discount Id
+	 	if (isset($discount_name)) {
+	 		$discounts_id = array();
+	 		foreach ($discounts as $discount) {
+	 			if ($discount->enabled == 1 && in_array($discount->name, $discount_name)) {
+	 				if (!in_array($discount->discount_id, $discounts_id)) {
+	 					$discounts_id[] = $discount->discount_id;
+	 				}
+	 			}
+	 		}
+	 	}
+
+	 	// Render Markup
+	 	if (isset($discounts_id)) {
+	 		$markup = '';
+	 		foreach ($discounts_id as $value) {
+	 			$fid = variable_get('icon_'.$value, '');
+		 		$file = file_load($fid);
+		 		if (!empty($file)) {
+		 			$uri = $file->uri;
+		 			$url = file_create_url($uri);
+		 			$markup .= '<img src = "'.$url.'" class = "badge-discount">'; // Generate Markup
+		 		}
+	 		}
+	 	}
+	 	
+	 	if (isset($markup)) {
+	  	$node->content[$extrafield_name] = array('#markup' => $markup);
+		}
+	}
+}
+
+/**
+ * Function Get List Discount
+ */
+function tk_discount_get () {
+	$discounts = db_select('commerce_discount', 'discount')
+		->fields('discount')
+		->execute()
+		->fetchAll();
+	return $discounts;
+}

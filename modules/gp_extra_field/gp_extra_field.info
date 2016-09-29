@@ -1,0 +1,5 @@
+name = GP Extra Field
+description = Add Some Extra Field For Display
+core = 7.x
+package = Other
+dependencies[] = flippy

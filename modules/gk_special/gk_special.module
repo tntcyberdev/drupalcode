@@ -1,0 +1,222 @@
+<?php
+/**
+ * Implement Hook Webform select option info	
+ */
+function gk_special_webform_select_options_info_alter(&$items){
+	$items['position'] = array(
+		'title' => t('Jobs'),
+		'options callback' => 'gk_position_list',
+	);
+	$items['rate'] = array(
+		'title' => t('Rate'),
+		'options callback' => 'gk_rate_list',
+	);
+  $items['tours'] = array(
+    'title' => t('Tours option'),
+    'options callback' => 'gk_tours_list',
+  );
+  $items['hotels'] = array(
+    'title' => t('Hotel option'),
+    'options callback' => 'gk_hotels_list',
+  );
+}
+
+/**
+ * Return List Tours
+ */
+function gk_tours_list() {
+  $nodes = node_load_multiple(array(), array('type' => 'tour','status' => 1));
+  $ls = array();
+  foreach ($nodes as $key => $value) {
+    $ls[$key] = $value->title;
+  }
+  return $ls;
+}
+
+/**
+ * Return List Hotels
+ */
+function gk_hotels_list() {
+  $nodes = node_load_multiple(array(), array('type' => 'hotel_resort','status' => 1));
+  $ls = array();
+  foreach ($nodes as $key => $value) {
+    $ls[$key] = $value->title;
+  }
+  return $ls;
+}
+
+/**
+ * Return List Option Position
+ */
+function gk_position_list() {
+  $nodes = node_load_multiple(array(), array('type' => 'job','status' => 1));
+ 	$ls = array();
+ 	foreach ($nodes as $key => $value) {
+ 		$ls[$key] = $value->title;
+ 	}
+  return $ls;
+}
+
+/**
+ * Return List Option Rate
+ */
+function gk_rate_list () {
+	$terms = taxonomy_get_tree(10);
+	$ls = array();
+	foreach ($terms as $key => $value) {
+		$ls[$value->tid] = $value->name;
+	}
+  ksort($ls);
+	return $ls;
+}
+
+/**
+ * Implements hook_form_alter().
+ */
+function gk_special_form_alter(&$form, &$form_state, $form_id) {
+	global $base_url;
+  if (strpos($form_id,'simplenews_block_form') === 0) {
+  	$class = $form['#attributes']['class'];
+  	if ($form['submit']['#value'] == 'Unsubscribe' 
+  	|| in_array('simplenews-unsubscribe', $class)) {
+  		unset($form['submit']);
+  	}
+  }
+
+  if ($form_id == 'views_exposed_form') {
+  	$terms = taxonomy_get_tree(6);
+  	$path = current_path();
+    if (isset($form['items_per_page'])) {
+  	  $options = $form['items_per_page']['#options'];
+    } else {
+      $options = array();
+    }
+  	$ls = array();
+  	foreach ($options as $key => $value) {
+      if (isset($_GET['items_per_page']) && $key == $_GET['items_per_page']) {
+  		  $ls[] = '<a class = "active" href = "'.$base_url.'/'.$path.'?items_per_page='.$key.'">'.$value.'</a>';
+      } else {
+        $ls[] = '<a href = "'.$base_url.'/'.$path.'?items_per_page='.$key.'">'.$value.'</a>';
+      }
+  	}
+    $form['style']['#validated'] = TRUE;
+  	$form['items_per_page'] = array(
+  		'#markup' => theme('item_list', array('items' => $ls)),
+  	);
+
+    // Destionation Parent
+    if (!empty($form['location'])) {
+      $options_dest = $form['location']['#options']['All'] = t('Destinations'); 
+    }
+    // Style
+    if (!empty($form['style'])) {
+      $form['style']['#options']['All'] = t('Style');
+    }
+    // Style
+    if (!empty($form['duration'])) {
+      $form['duration']['#options']['All'] = t('Trip Duration');
+    }
+    if (!empty($form['rating'])) {
+      $form['rating']['#options']['All'] = t('Star rating');
+    }
+    if (!empty($form['type'])) {
+      $form['type']['#options']['All'] = t('All offers');
+    }
+    if (!empty($form['mark'])) {
+      $form['mark']['#options']['All'] = t('Recommended');
+    }
+  }
+
+  if ($form_id == 'webform_client_form_45' || $form_id == 'webform_client_form_222') {
+    drupal_add_js(drupal_get_path('module', 'gk_special').'/js/gk_special.js');
+  }
+}
+
+/**
+ * Implements hook_field_formatter_info().
+ */
+function gk_special_field_formatter_info() {
+  return array(
+    'price_custom' => array(
+      'label' => t('Price by currency'),
+      'description' => t('Display price by currency'),
+      'field types' => array('commerce_price'),
+      'settings' => array(),
+    ),
+  );
+}
+
+/**
+ * Implements hook_field_formatter_view().
+ */
+function gk_special_field_formatter_view($entity_type, $entity, $field, $instance, $langcode, $items, $display) {
+  $element = array();
+  $settings = $display['settings'];
+
+  if ($display['type'] == 'price_custom') { 
+  	$element[0]['#type'] = 'markup';
+  	$currency_code = 'VND';
+    /*$currency_code = commerce_multicurrency_get_user_currency_code();*/
+    if (isset($items[0])) {
+  	  $amount = $items[0]['amount'];
+      $code = $items[0]['currency_code'];
+  	  $amount = commerce_currency_convert($amount, $code, $currency_code);
+  	  $element[0]['#markup'] = commerce_currency_format($amount, $currency_code, NULL, TRUE);
+    }
+ 	}
+  
+  return $element;
+}
+
+/**
+* Implements hook_token_info().
+*/
+function gk_special_token_info() {
+  $info = array();
+  $info['types']['gk_token'] = array(
+    'name' => t('Ginkgo Token'),
+    'description' => t('Ginkgo devs custom'),
+  );
+  $info['tokens']['gk_token']['tour_default'] = array(
+    'name' => t('Tour Default'),
+    'description' => t('Create default value for tour options.'),
+  );
+  $info['tokens']['gk_token']['hotel_default'] = array(
+    'name' => t('Hotel Default'),
+    'description' => t('Create default value for hotel options.'),
+  );
+  return $info;
+}
+
+
+/**
+ * Implements hook_tokens($type, $tokens, array $data = array(), array $options = array().
+ */
+function gk_special_tokens($type, $tokens, array $data = array(), array $options = array()) {
+  $replacements = array();
+  $node = menu_get_object('node');
+  $nid_tour = NULL;
+  $nid_hotel = NULL;
+  if (!empty($node) && isset($node->type)) {
+    if ($node->type == 'tour') {
+      $nid_tour = $node->nid;
+    } elseif ($node->type == 'hotel_resort') {
+      $nid_hotel = $node->nid;
+    }
+  }
+
+  if ($type == 'gk_token') {
+    foreach ($tokens as $name => $original) {
+      switch ($name) {
+        case 'tour_default':
+          $replacements[$original] = $nid_tour;
+          break;
+        case 'hotel_default':
+          $replacements[$original] = $nid_hotel;
+          break;
+      }
+    }
+  }
+
+  return $replacements;
+}

@@ -1,0 +1,14 @@
+name = Views jcarousel connected
+description = Display Content Formater Jcarousel Connected
+dependencies[] = views (>=3.0)
+dependencies[] = jquery_update
+package = Coconuts
+core = 7.x
+
+files[] = views_jcarousel_connected.module
+files[] = views_jcarousel_connected.views.inc
+files[] = views_jcarousel_connected_plugin_style_list.inc
+files[] = views_jcarousel_connected_format_handler.inc
+
+version = "7.x-1.0"
+core = "7.x"

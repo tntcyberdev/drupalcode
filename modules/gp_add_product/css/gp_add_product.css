@@ -1,0 +1,45 @@
+span.remove-img:hover{
+	cursor: pointer;
+	color: #FEBE2D;
+}
+
+span.remove-img{
+	margin-left: 5px;
+}
+
+.image-defaut{
+	margin-right: 10px;
+	padding: 5px;
+}
+
+ /* ------------------ add product ------------------ */
+.collapse-processed table{
+  width:250px;
+}
+.collapse-processed table td{
+  vertical-align: middle;
+}
+.collapse-processed table .form-item{
+  padding:0;
+  margin:0;
+}
+.collapse-processed .image-defaut{
+	position: relative;
+}
+
+.collapse-processed .image-defaut .remove-img{
+	background: none repeat scroll 0 0 #000000;
+	border-radius: 100px;
+	color: #FFFFFF;
+	height: 15px;
+	line-height: 1;
+	padding: 0;
+	position: absolute;
+	right: -5px;
+	text-align: center;
+	top: -6px;
+	width: 15px;
+}
+.collapse-processed .image-defaut .remove-img:hover{
+	color: #e96215;
+}

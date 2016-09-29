@@ -1,0 +1,43 @@
+<?php
+/**
+ * Constructor Table contain setting 
+ */	
+
+/**
+ * Implement Hook_schema
+ */
+function devices_visibility_schema(){
+	$schema['mobile_block'] = array(
+
+		// Example (partial) specification for table "node".
+		'description' => 'Table contain setting mobile block',
+		'fields' => array(
+			'module' => array(
+				'type' => 'varchar',
+		        'length' => 64,
+		        'not null' => TRUE,
+		        'description' => "The block's origin module, from {block}.module.",
+			),
+
+			'delta' => array(
+		        'type' => 'varchar',
+		        'length' => 32,
+		        'not null' => TRUE,
+		        'description' => "The block's unique delta within module, from {block}.delta.",
+		    ),
+
+			'devices' => array(
+		        'type' => 'varchar',
+		        'length' => 64,
+		        'not null' => TRUE,
+		        'description' => "The block's origin module, from {block}.module.",
+		    ),
+		),
+		'primary key' => array('module', 'delta', 'devices'),
+	    'indexes' => array(
+	      'devices' => array('devices'),
+	    ),
+	);
+  return $schema;
+}
+?>

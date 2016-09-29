@@ -1,0 +1,32 @@
+<?php
+
+/**
+ * @file
+ * Installation and update functions for the Onepay module.
+ */
+
+/**
+ * Implements hook_schema().
+ */
+function onepay_schema() {
+  $schema['onepay_transaction'] = array(
+    'fields'      => array(
+      'onepay_id' => array('type' => 'int', 'unsigned' => FALSE, 'not null' => TRUE, 'disp-width' => 10),
+      'o_id'      => array('type' => 'int', 'unsigned' => FALSE, 'not null' => TRUE, 'disp-width' => 10),
+      'r_code'    => array('type' => 'int', 'unsigned' => FALSE, 'not null' => TRUE, 'disp-width' => 2),
+    ),
+    'indexes'     => array('o_id' => array('o_id')),
+    'primary key' => array('onepay_id'),
+  );
+
+  return $schema;
+}
+
+/**
+ * Implements hook_uninstall().
+ */
+function onepay_uninstall() {
+  if (db_table_exists('onepay_transaction')) {
+    db_drop_table('onepay_transaction');
+  }
+}

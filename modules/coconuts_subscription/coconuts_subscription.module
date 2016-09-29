@@ -1,0 +1,137 @@
+<?php
+/**
+ * Implements hook_block_info().
+ */
+function coconuts_subscription_block_info() {
+  $blocks['signup'] = array(
+    'info' => t('Signup for the Coconuts newsletter'),
+    'cache' => DRUPAL_NO_CACHE,
+  );
+
+  return $blocks;
+}
+
+/**
+ * Implements hook_block_configure().
+ */
+function coconuts_subscription_block_configure($delta = '') {
+ 	$form = array();
+  switch ($delta) {
+    case 'signup':
+      $options = array('' => t('--Please select--'));
+      $lists = mailchimp_lists_load_multiple();
+      foreach ($lists as $list) {
+        if ($list->status) {
+          $options[$list->id] = check_plain($list->label);
+        }
+      }
+      $form['subscription_list'] = array(
+        '#type' => 'select',
+        '#title' => t('Subscription list'),
+        '#default_value' => variable_get('coconuts_users_subscription_list', ''),
+        '#options' => $options,
+        '#required' => TRUE,
+      );
+      break;
+  }
+
+  return $form;
+}
+
+/**
+ * Implements hook_block_save($delta = '', $edit = array().
+ */
+function coconuts_subscription_block_save($delta = '', $edit = array()) {
+  switch ($delta) {
+    case 'signup':
+      variable_set('coconuts_users_subscription_list', $edit['subscription_list']);
+      break;
+  }
+}
+
+/**
+ * Implements hook_block_view().
+ */
+function coconuts_subscription_block_view($delta = '') {
+  $block = array();
+
+  switch ($delta) {
+    case 'signup':
+      $block['subject'] = '';
+      $block['content'] = drupal_get_form('coconuts_subscription_block_form');
+      break;
+  }
+
+  return $block;
+}
+
+/**
+ * Signup to newsletter form builder.
+ */
+function coconuts_subscription_block_form($form, &$form_state) {
+  global $user;
+  $enabled = FALSE;
+  $list_id = variable_get('coconuts_users_subscription_list');
+  if ($list_id != 0 && $list = mailchimp_lists_load($list_id)) {
+    $enabled = TRUE;
+  }
+  $form['#attributes']['class'] = array('form-subscription');
+  // Check if user already subscribed.
+  if ($enabled && $user->uid != 0 && mailchimp_is_subscribed($list->mc_list_id, $user->mail)) {
+    $form['subscribed']['#markup'] = t('Already subscribed to !link newsletter!', array('!link' => l(t('Coconuts'), '<front>')));
+  }
+  else {
+    $form['title'] = array(
+      '#prefix' => '<p>',
+      '#suffix' => '</p>',
+      '#markup' => t('Sign up for the !link newsletter!', array('!link' => l(t('Coconuts'), '<front>'))),
+    );
+
+    $form['subscription_email'] = array(
+      '#type' => 'textfield',
+      '#required' => TRUE,
+      '#default_value' => $user->uid == 0 ? '' : $user->mail,
+      '#disabled' => !$enabled,
+      '#attributes' => array(
+        'placeholder' => t('Your email here'),
+      ),
+    );
+
+    $form['submit'] = array(
+      '#type' => 'submit',
+      '#value' => t('Subscribe'),
+      '#disabled' => !$enabled,
+    );
+  }
+
+  return $form;
+}
+
+/**
+ * Signup to newsletter form submit callback.
+ */
+function coconuts_subscription_submit_form($form, &$form_state) {
+  global $user;
+  $subscription_email = trim($form_state['values']['subscription_email']);
+  $merge_vars = array(
+    'FNAME' => $user->uid == 0 ? $subscription_email : $user->name,
+  );
+  $list_id = variable_get('coconuts_users_subscription_list', 0);
+  if ($list_id != 0 && $list = mailchimp_lists_load($list_id)) {
+    $list = mailchimp_lists_load(variable_get('coconuts_users_subscription_list'));
+    $api_key = variable_get('mailchimp_api_key');
+    libraries_load('mailchimp');
+    $mailchimp_api = new MCAPI($api_key, TRUE);
+    if ($mailchimp_api->listSubscribe($list->mc_list_id, $subscription_email, $merge_vars) === TRUE) {
+      mailchimp_cache_clear_user($list->mc_list_id, $subscription_email);
+      drupal_set_message(t('You are successfully subscribed to !link newsletter! Check your email to confirm sign up.', array('!link' => l(t('Coconuts'), '<front>'))));
+    }
+    else {
+      $vars = array(
+        '!link' => l(t('Coconuts'), '<front>'),
+        '!message' => $mailchimp_api->errorMessage,
+      );
+      drupal_set_message(t('There was an error while subscribing you to !link newsletter. Error: !message.', $vars), 'warning');
+    }
+  }
+}

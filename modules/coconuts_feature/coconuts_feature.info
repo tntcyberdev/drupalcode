@@ -1,0 +1,5 @@
+name = Coconuts Feature
+description = "Custom Feature Block"
+package = Coconuts
+core = "7.x"
+dependencies[] = views

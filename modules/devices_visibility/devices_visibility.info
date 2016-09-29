@@ -1,0 +1,5 @@
+name = Devices Visibility
+description = Hidden Block content in devices.
+core = 7.x
+dependencies[] = libraries
+package = Mobile
